@@ -1,0 +1,641 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>彩虹美少女de安排</title>
+<style>
+  :root {
+    --primary: #2563EB;
+    --listen-color: #7C3AED;
+    --listen-bg: #F3E8FF;
+    --ink: #1E293B;
+    --soft: #F8FAFC;
+    --softblue: #EFF6FF;
+    --line: #CBD5E1;
+    --soft-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
+    
+    --c-c3: #2563EB;
+    --c-c4: #059669;
+    --c-cg2: #D97706;
+    --c-cg3: #DC2626;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  body { background: #94A3B8; display: flex; justify-content: center; align-items: center; min-height: 100vh; }
+  
+  .phone { width: 390px; height: 844px; background: #FFF; border-radius: 36px; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); display: flex; flex-direction: column; overflow: hidden; position: relative; }
+  
+  /* Header */
+  .header { background: #FFF; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-shrink: 0; }
+  .title-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .title { font-size: 16px; font-weight: 700; color: var(--ink); }
+  .today-tag { font-size: 11px; background: #FEF3C7; color: #92400E; padding: 2px 8px; border-radius: 12px; font-weight: 600; }
+  
+  .week-ctrl { display: flex; justify-content: space-between; align-items: center; background: var(--soft); padding: 6px 12px; border-radius: 8px; font-size: 13px; font-weight: 600; color: var(--ink); border: 1px solid var(--line); }
+  .week-btn { background: #FFF; border: 1px solid var(--line); border-radius: 6px; font-weight: bold; color: var(--primary); cursor: pointer; padding: 2px 8px; }
+
+  /* Views */
+  .view-container { flex: 1; overflow-y: auto; padding: 10px; display: none; background: #F1F5F9; }
+  .view-container.active { display: block; }
+
+  /* Cards */
+  .card { background: #FFF; border-radius: 12px; padding: 10px; margin-bottom: 10px; box-shadow: var(--soft-shadow); border: 1px solid var(--line); }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--ink); margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center; }
+
+  /* Summary Stats */
+  .stat-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat-box { padding: 8px; border-radius: 8px; font-size: 11px; }
+  .stat-box.teach { background: var(--softblue); color: var(--primary); }
+  .stat-box.listen { background: var(--listen-bg); color: var(--listen-color); }
+  .stat-num { font-size: 16px; font-weight: bold; margin-top: 2px; }
+
+  /* Timetable Grid */
+  .tt-grid { display: grid; grid-template-columns: 50px repeat(5, 1fr); gap: 3px; font-size: 10px; text-align: center; }
+  .tt-header { font-weight: bold; background: #E2E8F0; padding: 6px 0; border-radius: 4px; color: #475569; position: sticky; top: 0; z-index: 10; }
+  .tt-header.today { background: var(--primary); color: #FFF; }
+  
+  /* Section Separator Rows */
+  .tt-section-row { grid-column: span 6; background: #E2E8F0; color: #334155; font-weight: bold; font-size: 11px; text-align: left; padding: 4px 8px; border-radius: 4px; margin-top: 4px; }
+  
+  .tt-slot-num { font-weight: 600; background: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; color: #64748B; font-size: 9px; line-height: 1.1; border: 1px solid #E2E8F0; padding: 2px 0; }
+  .tt-cell { background: #FFF; border-radius: 4px; min-height: 44px; border: 1px dashed #CBD5E1; padding: 2px; position: relative; cursor: pointer; }
+  .tt-cell:hover { background: #F8FAFC; }
+
+  /* Schedule Cards */
+  .tt-card { border-radius: 4px; padding: 3px 2px; font-size: 10px; color: #FFF; text-align: left; height: 100%; box-sizing: border-box; overflow: hidden; position: relative; }
+  .tt-card.listen { background: var(--listen-color); }
+  .tt-card.c3 { background: var(--c-c3); }
+  .tt-card.c4 { background: var(--c-c4); }
+  .tt-card.cg2 { background: var(--c-cg2); }
+  .tt-card.cg3 { background: var(--c-cg3); }
+  .tt-card.custom { background: #0EA5E9; }
+  
+  .tt-tag { font-size: 8px; padding: 1px 3px; border-radius: 2px; background: rgba(255,255,255,0.25); display: inline-block; margin-bottom: 2px; }
+  .tt-name { font-weight: bold; line-height: 1.1; word-break: break-all; }
+  .tt-room { font-size: 8px; opacity: 0.9; margin-top: 1px; }
+  .has-note-dot { position: absolute; top: 2px; right: 2px; width: 5px; height: 5px; background: #FACC15; border-radius: 50%; }
+
+  /* Today's List & To-Do */
+  .todo-input-group { display: flex; gap: 6px; margin-bottom: 8px; }
+  .todo-input-group input { flex: 1; border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; outline: none; }
+  .todo-list { display: flex; flex-direction: column; gap: 6px; max-height: 180px; overflow-y: auto; }
+  .todo-item { display: flex; align-items: center; justify-content: space-between; background: var(--soft); padding: 6px 8px; border-radius: 6px; border: 1px solid var(--line); font-size: 12px; }
+  .todo-item.done span { text-decoration: line-through; color: #94A3B8; }
+  .todo-item-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+  .todo-del-btn { color: #EF4444; cursor: pointer; font-size: 12px; border: none; background: none; font-weight: bold; padding: 0 4px; }
+
+  .agenda-date-ctrl { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; gap: 6px; }
+  .agenda-date-ctrl input[type="date"] { border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; font-size: 12px; font-weight: bold; color: var(--ink); background: var(--soft); outline: none; }
+
+  .today-item { background: #FFF; border-radius: 8px; padding: 8px 10px; border-left: 4px solid var(--primary); margin-bottom: 6px; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+  .today-item.listen { border-left-color: var(--listen-color); }
+  .today-item.custom { border-left-color: #0EA5E9; }
+  .today-time { font-size: 10px; font-weight: bold; color: #64748B; margin-bottom: 2px; display: flex; justify-content: space-between; }
+  .today-title { font-size: 12px; font-weight: bold; color: var(--ink); }
+  .today-note-box { font-size: 11px; background: #F1F5F9; color: #334155; padding: 4px 6px; border-radius: 4px; margin-top: 4px; }
+
+  /* Modal */
+  .modal-overlay { position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); display: none; justify-content: center; align-items: center; z-index: 100; }
+  .modal { background: #FFF; border-radius: 14px; padding: 14px; width: 320px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.1); }
+  .modal-title { font-size: 14px; font-weight: bold; margin-bottom: 8px; color: var(--ink); }
+  .modal-textarea { width: 100%; height: 80px; border: 1px solid var(--line); border-radius: 6px; padding: 6px; font-size: 12px; outline: none; resize: none; margin-bottom: 10px; }
+  .modal-actions { display: flex; justify-content: space-between; gap: 8px; }
+  .btn-danger { background: #EF4444; color: #FFF; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; cursor: pointer; }
+  .btn-cancel { background: #E2E8F0; border: none; padding: 6px 10px; border-radius: 6px; font-size: 11px; }
+  .btn-save { background: var(--primary); color: #FFF; border: none; padding: 6px 12px; border-radius: 6px; font-size: 11px; font-weight: bold; cursor: pointer; }
+
+  /* Navigation Bar */
+  .navbar { height: 56px; background: #FFF; border-top: 1px solid var(--line); display: flex; justify-content: space-around; align-items: center; flex-shrink: 0; }
+  .nav-item { display: flex; flex-direction: column; align-items: center; font-size: 10px; color: #64748B; cursor: pointer; }
+  .nav-item.active { color: var(--primary); font-weight: bold; }
+  .nav-icon { font-size: 16px; margin-bottom: 1px; }
+</style>
+</head>
+<body>
+
+<div class="phone">
+  <!-- Header -->
+  <div class="header">
+    <div class="title-bar">
+      <div class="title">彩虹美少女de安排</div>
+      <div class="today-tag" id="realTodayText">2026-09-09</div>
+    </div>
+    <div class="week-ctrl">
+      <button class="week-btn" onclick="changeWeek(-1)">‹ 上周</button>
+      <span id="viewWeekText">第 1 周</span>
+      <button class="week-btn" onclick="changeWeek(1)">下周 ›</button>
+    </div>
+  </div>
+
+  <!-- View 1: 周课表 -->
+  <div id="schView" class="view-container active">
+    <div class="card">
+      <div class="card-title">
+        <span>第 <span id="statWeekNum">1</span> 周课时汇总</span>
+        <span style="font-size:10px; font-weight:normal; color:#64748B;">点击任意格子添加工作/备注</span>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-box teach">
+          <div>👨‍🏫 授课：统计与计量</div>
+          <div class="stat-num" id="teachHours">0 课时</div>
+        </div>
+        <div class="stat-box listen">
+          <div>🎧 听课/修读</div>
+          <div class="stat-num" id="listenHours">0 课时</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 12节网格 -->
+    <div class="tt-grid" id="ttGrid"></div>
+  </div>
+
+  <!-- View 2: 日程与待办 -->
+  <div id="wbView" class="view-container">
+    <!-- 顶置：待办事项卡片 -->
+    <div class="card">
+      <div class="card-title">📌 待办事项 (随时完成)</div>
+      <div class="todo-input-group">
+        <input type="text" id="todoInput" placeholder="输入待办事项..." onkeydown="if(event.key==='Enter') addTodo()">
+        <button class="btn-save" onclick="addTodo()">添加</button>
+      </div>
+      <div id="todoList" class="todo-list"></div>
+    </div>
+
+    <!-- 任意日期行程卡片 -->
+    <div class="card">
+      <div class="card-title">
+        <span>📅 日程安排</span>
+        <button class="week-btn" onclick="goTodayAgenda()" style="font-size:10px; padding:1px 6px;">回到今天</button>
+      </div>
+      <!-- 日期选择与切换 -->
+      <div class="agenda-date-ctrl">
+        <button class="week-btn" onclick="changeAgendaDate(-1)">‹ 前一天</button>
+        <input type="date" id="agendaDateInput" onchange="onAgendaDateChange(this.value)">
+        <button class="week-btn" onclick="changeAgendaDate(1)">后一天 ›</button>
+      </div>
+      <div id="agendaDateSubText" style="font-size:11px; color:#64748B; text-align:center; margin-bottom:8px; font-weight:bold;"></div>
+      <div id="todayList"></div>
+    </div>
+  </div>
+
+  <!-- Bottom Navigation -->
+  <div class="navbar">
+    <div class="nav-item active" onclick="switchNav('schView', this)">
+      <span class="nav-icon">📅</span>
+      <span>周课表</span>
+    </div>
+    <div class="nav-item" onclick="switchNav('wbView', this)">
+      <span class="nav-icon">⚡</span>
+      <span>行程与待办</span>
+    </div>
+  </div>
+
+  <!-- Modal -->
+  <div class="modal-overlay" id="noteModal">
+    <div class="modal">
+      <div class="modal-title" id="modalTitle">编辑行程 / 备注</div>
+      <textarea id="modalNoteInput" class="modal-textarea" placeholder="输入工作安排或课堂备注..."></textarea>
+      <div class="modal-actions">
+        <button class="btn-danger" id="btnDeleteModal" onclick="deleteModalNote()" style="display:none;">删除安排</button>
+        <div>
+          <button class="btn-cancel" onclick="closeModal()">取消</button>
+          <button class="btn-save" onclick="saveModalNote()">保存</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+var START_DATE = new Date('2026-08-31');
+var TEACH_COURSE_NAME = "统计与计量经济学基础";
+
+// 单节真实作息时间 (听课)
+var LISTEN_TIMES = {
+  1: "07:40-08:25", 2: "08:35-09:20", 3: "09:45-10:30", 4: "10:40-11:25",
+  5: "14:30-15:15", 6: "15:25-16:10", 7: "16:35-17:20", 8: "17:30-18:15",
+  9: "19:20-20:05", 10: "20:15-21:00", 11: "21:10-21:55", 12: "21:55-22:30"
+};
+
+// 大节次到具体单节的映射
+var SLOT_MAP = {
+  "1-2节": [1, 2], "3-4节": [3, 4], "1-4节": [1, 2, 3, 4],
+  "5-6节": [5, 6], "7-8节": [7, 8], "5-8节": [5, 6, 7, 8],
+  "9-11节": [9, 10, 11], "9-12节": [9, 10, 11, 12]
+};
+
+// 基础排课数据
+var SCHED = [
+  // 听课 (listen)
+  ["listen", "高级管理经济学", "3-4节", "2-105", 1, "2-5,7-8"],
+  ["listen", "管理学理论前沿", "3-4节", "2-209", 2, "2-5,7-10"],
+  ["listen", "高级管理经济学", "3-4节", "2-105", 3, "2-5,7-8,12-15"],
+  ["listen", "高级多元统计",   "3-4节", "2-105", 4, "2-3,6,12-16"],
+  ["listen", "国际交流技巧",   "9-11节","2-205", 4, "2-4,6-8"],
+  ["listen", "高级多元统计",   "3-4节", "2-105", 5, "2-3,6,12-16"],
+
+  // 授课 (teach)
+  ["teach", "会计3班", "1-4节", "6A-104", 5, "1"],
+  ["teach", "会计4班", "5-8节", "6A-104", 4, "1-4"],
+  ["teach", "财管2班", "9-12节","6A-104", 4, "1"],
+  ["teach", "财管2班", "5-6节", "6B-413", 2, "2"],
+  ["teach", "财管2班", "9-12节","6A-104", 3, "2-4"],
+  ["teach", "财管3班", "1-2节", "6B-311", 4, "4"],
+  ["teach", "财管3班", "1-4节", "6B-110", 5, "7-8"],
+  ["teach", "财管3班", "9-12节","6A-104", 3, "8-9"],
+  ["teach", "会计4班", "9-12节","6A-104", 4, "9-16"],
+  ["teach", "会计3班", "1-4节", "6A-104", 2, "11-12"],
+  ["teach", "会计3班", "1-4节", "6D-228", 2, "13-17"],
+  ["teach", "会计3班", "9-12节","6A-104", 5, "12-15"],
+  ["teach", "会计3班", "1-4节", "6D-228", 5, "17"]
+];
+
+var currentActiveKey = "";
+var selectedAgendaDate = new Date(); // 行程视图选择的日期
+
+function getTimeRangeStr(type, slot) {
+  if (type === "teach") {
+    if (slot === "1-4节") return "08:15-11:55";
+    if (slot === "1-2节") return "08:15-09:50";
+    if (slot === "5-8节") return "14:10-17:50";
+    if (slot === "5-6节") return "14:10-15:45";
+    if (slot === "9-12节") return "18:30-21:40";
+  }
+  if (SLOT_MAP[slot]) {
+    var arr = SLOT_MAP[slot];
+    var startP = arr[0], endP = arr[arr.length - 1];
+    return LISTEN_TIMES[startP].split('-')[0] + "-" + LISTEN_TIMES[endP].split('-')[1];
+  }
+  if (slot.indexOf("第") >= 0) {
+    var p = parseInt(slot.replace("第", "").replace("节", ""));
+    if (LISTEN_TIMES[p]) return LISTEN_TIMES[p];
+  }
+  return "";
+}
+
+function getStartPeriodIndex(slot) {
+  if (SLOT_MAP[slot]) return SLOT_MAP[slot][0];
+  if (slot.indexOf("第") >= 0) {
+    return parseInt(slot.replace("第", "").replace("节", "")) || 1;
+  }
+  return 1;
+}
+
+function getWeekAndDayFromDate(dt) {
+  var diffTime = dt.getTime() - START_DATE.getTime();
+  var diffDays = Math.floor(diffTime / (1000 * 3600 * 24));
+  var week = Math.floor(diffDays / 7) + 1;
+  if (week < 1) week = 1;
+  if (week > 17) week = 17;
+  var dayIdx = dt.getDay();
+  if (dayIdx === 0) dayIdx = 7;
+  return {
+    week: week,
+    dayIdx: dayIdx,
+    dateStr: dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate())
+  };
+}
+
+var realInfo = getWeekAndDayFromDate(new Date());
+var curViewWeek = realInfo.week;
+
+function pad(n) { return n < 10 ? '0' + n : n; }
+
+function inWeeks(rangeStr, week) {
+  var parts = rangeStr.split(',');
+  for (var i = 0; i < parts.length; i++) {
+    var p = parts[i].trim();
+    if (p.indexOf('-') >= 0) {
+      var limits = p.split('-');
+      if (week >= parseInt(limits[0]) && week <= parseInt(limits[1])) return true;
+    } else if (parseInt(p) === week) {
+      return true;
+    }
+  }
+  return false;
+}
+
+function getCardClass(type, name) {
+  if (type === "listen") return "listen";
+  if (type === "custom") return "custom";
+  if (name.indexOf("会计3") >= 0) return "c3";
+  if (name.indexOf("会计4") >= 0) return "c4";
+  if (name.indexOf("财管2") >= 0) return "cg2";
+  if (name.indexOf("财管3") >= 0) return "cg3";
+  return "c3";
+}
+
+function changeWeek(delta) {
+  curViewWeek += delta;
+  if (curViewWeek < 1) curViewWeek = 1;
+  if (curViewWeek > 17) curViewWeek = 17;
+  renderAll();
+}
+
+function switchNav(viewId, el) {
+  document.querySelectorAll('.view-container').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+  el.classList.add('active');
+}
+
+function openNoteModal(key, title, isCustom) {
+  currentActiveKey = key;
+  document.getElementById('modalTitle').innerText = title;
+  document.getElementById('modalNoteInput').value = localStorage.getItem(key) || "";
+  document.getElementById('btnDeleteModal').style.display = isCustom ? "inline-block" : "none";
+  document.getElementById('noteModal').style.display = "flex";
+}
+
+function closeModal() {
+  document.getElementById('noteModal').style.display = "none";
+}
+
+function saveModalNote() {
+  var val = document.getElementById('modalNoteInput').value.trim();
+  if (val) {
+    localStorage.setItem(currentActiveKey, val);
+  } else {
+    localStorage.removeItem(currentActiveKey);
+  }
+  closeModal();
+  renderAll();
+}
+
+function deleteModalNote() {
+  localStorage.removeItem(currentActiveKey);
+  closeModal();
+  renderAll();
+}
+
+/* 待办事项逻辑 */
+function getTodos() {
+  return JSON.parse(localStorage.getItem('my_todos') || '[]');
+}
+
+function saveTodos(todos) {
+  localStorage.setItem('my_todos', JSON.stringify(todos));
+}
+
+function addTodo() {
+  var input = document.getElementById('todoInput');
+  var text = input.value.trim();
+  if(!text) return;
+  var todos = getTodos();
+  todos.unshift({ id: Date.now(), text: text, done: false });
+  saveTodos(todos);
+  input.value = '';
+  renderTodos();
+}
+
+function toggleTodo(id) {
+  var todos = getTodos();
+  todos.forEach(function(t) { if(t.id === id) t.done = !t.done; });
+  saveTodos(todos);
+  renderTodos();
+}
+
+function deleteTodo(id) {
+  var todos = getTodos().filter(function(t) { return t.id !== id; });
+  saveTodos(todos);
+  renderTodos();
+}
+
+function renderTodos() {
+  var list = document.getElementById('todoList');
+  var todos = getTodos();
+  if (todos.length === 0) {
+    list.innerHTML = '<div style="font-size:11px; color:#94A3B8; text-align:center; padding:6px;">暂无待办事项</div>';
+    return;
+  }
+  list.innerHTML = '';
+  todos.forEach(function(t) {
+    var item = document.createElement('div');
+    item.className = 'todo-item' + (t.done ? ' done' : '');
+    item.innerHTML = '<div class="todo-item-left">' +
+                     '<input type="checkbox" ' + (t.done ? 'checked' : '') + ' onclick="toggleTodo(' + t.id + ')">' +
+                     '<span>' + escapeHtml(t.text) + '</span>' +
+                     '</div>' +
+                     '<button class="todo-del-btn" onclick="deleteTodo(' + t.id + ')">✕</button>';
+    list.appendChild(item);
+  });
+}
+
+function escapeHtml(str) {
+  return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/* 日程选择逻辑 */
+function changeAgendaDate(days) {
+  selectedAgendaDate.setDate(selectedAgendaDate.getDate() + days);
+  renderAgendaView();
+}
+
+function onAgendaDateChange(val) {
+  if (!val) return;
+  selectedAgendaDate = new Date(val + "T00:00:00");
+  renderAgendaView();
+}
+
+function goTodayAgenda() {
+  selectedAgendaDate = new Date();
+  renderAgendaView();
+}
+
+function renderAgendaView() {
+  var info = getWeekAndDayFromDate(selectedAgendaDate);
+  document.getElementById('agendaDateInput').value = info.dateStr;
+
+  var dayNames = ["", "周一", "周二", "周三", "周四", "周五", "周六", "周日"];
+  var subText = "第 " + info.week + " 周 " + (dayNames[info.dayIdx] || "周末");
+  if (info.dateStr === realInfo.dateStr) subText += " (今天)";
+  document.getElementById('agendaDateSubText').innerText = subText;
+
+  renderScheduleForInfo(info);
+}
+
+// 主渲染
+function renderAll() {
+  document.getElementById('realTodayText').innerText = realInfo.dateStr;
+  document.getElementById('viewWeekText').innerText = "第 " + curViewWeek + " 周";
+  document.getElementById('statWeekNum').innerText = curViewWeek;
+  
+  var grid = document.getElementById('ttGrid');
+  grid.innerHTML = '';
+  var days = ["一", "二", "三", "四", "五"];
+  
+  // 顶部星期标头
+  grid.appendChild(createDiv('tt-header', '节次'));
+  for (var d = 0; d < 5; d++) {
+    var isTodayHeader = (realInfo.week === curViewWeek && (d + 1) === realInfo.dayIdx);
+    grid.appendChild(createDiv('tt-header' + (isTodayHeader ? ' today' : ''), '周' + days[d]));
+  }
+
+  var teachH = 0, listenH = 0;
+  var occupied = {};
+
+  for (var p = 1; p <= 12; p++) {
+    if (p === 1) grid.appendChild(createDiv('tt-section-row', '🌅 上午 (1-4节) 授课:08:15-11:55'));
+    if (p === 5) grid.appendChild(createDiv('tt-section-row', '☀️ 下午 (5-8节) 授课:14:10-17:50'));
+    if (p === 9) grid.appendChild(createDiv('tt-section-row', '🌙 晚上 (9-12节) 授课:18:30-21:40'));
+
+    var slotLabel = createDiv('tt-slot-num', '');
+    slotLabel.innerHTML = '<b>' + p + '</b><span style="font-size:7px; color:#94A3B8;">' + LISTEN_TIMES[p].split('-')[0] + '</span>';
+    grid.appendChild(slotLabel);
+
+    for (var day = 1; day <= 5; day++) {
+      var cellKey = day + "_" + p;
+      if (occupied[cellKey]) continue;
+
+      var cell = createDiv('tt-cell', '');
+      var foundCourse = null;
+
+      SCHED.forEach(function(item) {
+        var type = item[0], name = item[1], slot = item[2], room = item[3], wDay = item[4], wRange = item[5];
+        var slots = SLOT_MAP[slot] || [];
+        if (wDay === day && inWeeks(wRange, curViewWeek) && slots.indexOf(p) >= 0) {
+          if (slots[0] === p) {
+            foundCourse = { type: type, name: name, slot: slot, room: room, span: slots.length };
+            for (var s = 1; s < slots.length; s++) {
+              occupied[day + "_" + (p + s)] = true;
+            }
+          }
+        }
+      });
+
+      if (foundCourse) {
+        cell.style.gridRow = "span " + foundCourse.span;
+        var cardKey = "note_" + curViewWeek + "_" + day + "_" + foundCourse.slot + "_" + foundCourse.name;
+        var hasNote = !!localStorage.getItem(cardKey);
+        
+        var card = createDiv('tt-card ' + getCardClass(foundCourse.type, foundCourse.name), '');
+        var tagText = foundCourse.type === "listen" ? "听课" : "授课";
+        card.innerHTML = (hasNote ? '<div class="has-note-dot"></div>' : '') +
+                         '<span class="tt-tag">' + tagText + '</span>' +
+                         '<div class="tt-name">' + foundCourse.name + '</div>' +
+                         '<div class="tt-room">(' + foundCourse.room + ')</div>';
+        
+        (function(k, t, n, r) {
+          card.onclick = function(e) {
+            e.stopPropagation();
+            openNoteModal(k, (t === "teach" ? "【授课】" + TEACH_COURSE_NAME + " - " + n : "【听课】" + n) + " (" + r + ")", false);
+          };
+        })(cardKey, foundCourse.type, foundCourse.name, foundCourse.room);
+
+        cell.appendChild(card);
+
+        if (foundCourse.type === "teach") teachH += foundCourse.span;
+        else listenH += foundCourse.span;
+
+      } else {
+        var customKey = "custom_slot_" + curViewWeek + "_" + day + "_" + p;
+        var customVal = localStorage.getItem(customKey);
+        
+        if (customVal) {
+          var customCard = createDiv('tt-card custom', '');
+          customCard.innerHTML = '<span class="tt-tag">安排</span><div class="tt-name">' + customVal + '</div>';
+          (function(k, d, p) {
+            customCard.onclick = function(e) {
+              e.stopPropagation();
+              openNoteModal(k, "编辑周" + days[d-1] + " 第" + p + "节 自定义工作", true);
+            };
+          })(customKey, day, p);
+          cell.appendChild(customCard);
+        } else {
+          (function(k, d, p) {
+            cell.onclick = function() {
+              openNoteModal(k, "添加周" + days[d-1] + " 第" + p + "节 工作安排", true);
+            };
+          })(customKey, day, p);
+        }
+      }
+
+      grid.appendChild(cell);
+    }
+  }
+
+  document.getElementById('teachHours').innerText = teachH + " 课时";
+  document.getElementById('listenHours').innerText = listenH + " 课时";
+
+  renderAgendaView();
+  renderTodos();
+}
+
+function renderScheduleForInfo(info) {
+  var list = document.getElementById('todayList');
+  list.innerHTML = "";
+  
+  var todayItems = [];
+
+  SCHED.forEach(function(item) {
+    var type = item[0], name = item[1], slot = item[2], room = item[3], wDay = item[4], wRange = item[5];
+    if (wDay === info.dayIdx && inWeeks(wRange, info.week)) {
+      todayItems.push({
+        type: type,
+        name: name,
+        slot: slot,
+        room: room,
+        startPeriod: getStartPeriodIndex(slot),
+        timeStr: getTimeRangeStr(type, slot)
+      });
+    }
+  });
+
+  for (var p = 1; p <= 12; p++) {
+    var customKey = "custom_slot_" + info.week + "_" + info.dayIdx + "_" + p;
+    var customVal = localStorage.getItem(customKey);
+    if (customVal) {
+      todayItems.push({
+        type: "custom",
+        name: customVal,
+        slot: "第" + p + "节",
+        room: "自定义工作",
+        startPeriod: p,
+        timeStr: LISTEN_TIMES[p] || ""
+      });
+    }
+  }
+
+  if (todayItems.length === 0) {
+    list.innerHTML = '<div style="font-size:12px; color:#94A3B8; text-align:center; padding:20px;">该日无任何课程或自定义安排</div>';
+    return;
+  }
+
+  todayItems.sort(function(a, b) {
+    return a.startPeriod - b.startPeriod;
+  });
+
+  todayItems.forEach(function(item) {
+    var cardKey = "note_" + info.week + "_" + info.dayIdx + "_" + item.slot + "_" + item.name;
+    var savedNote = localStorage.getItem(cardKey);
+    
+    var div = document.createElement('div');
+    div.className = "today-item " + getCardClass(item.type, item.name);
+    
+    var typeTag = "";
+    if (item.type === "teach") typeTag = "【授课 " + item.timeStr + "】";
+    else if (item.type === "listen") typeTag = "【听课 " + item.timeStr + "】";
+    else typeTag = "【安排 " + item.timeStr + "】";
+
+    var courseDetail = item.type === "teach" ? TEACH_COURSE_NAME + "（" + item.name + "）" : item.name;
+    
+    div.innerHTML = '<div class="today-time"><span>节次：' + item.slot + '</span><span>地点：' + item.room + '</span></div>' +
+                    '<div class="today-title">' + typeTag + '<br>' + courseDetail + '</div>' +
+                    (savedNote ? '<div class="today-note-box"><b>📝 备注：</b>' + savedNote + '</div>' : '');
+    list.appendChild(div);
+  });
+}
+
+function createDiv(cls, text) {
+  var d = document.createElement('div');
+  d.className = cls;
+  if(text) d.innerText = text;
+  return d;
+}
+
+// 初始化
+renderAll();
+</script>
+</body>
+</html>
