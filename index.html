@@ -51,10 +51,9 @@
 
   /* Timetable Grid */
   .tt-grid { display: grid; grid-template-columns: 50px repeat(5, 1fr); gap: 3px; font-size: 10px; text-align: center; }
-  .tt-header { font-weight: bold; background: #E2E8F0; padding: 6px 0; border-radius: 4px; color: #475569; position: sticky; top: 0; z-index: 10; }
+  .tt-header { font-weight: bold; background: #E2E8F0; padding: 4px 0; border-radius: 4px; color: #475569; position: sticky; top: 0; z-index: 10; line-height: 1.2; }
   .tt-header.today { background: var(--primary); color: #FFF; }
   
-  /* Section Separator Rows */
   .tt-section-row { grid-column: span 6; background: #E2E8F0; color: #334155; font-weight: bold; font-size: 11px; text-align: left; padding: 4px 8px; border-radius: 4px; margin-top: 4px; }
   
   .tt-slot-num { font-weight: 600; background: #F8FAFC; display: flex; flex-direction: column; align-items: center; justify-content: center; border-radius: 4px; color: #64748B; font-size: 9px; line-height: 1.1; border: 1px solid #E2E8F0; padding: 2px 0; }
@@ -69,6 +68,7 @@
   .tt-card.cg2 { background: var(--c-cg2); }
   .tt-card.cg3 { background: var(--c-cg3); }
   .tt-card.custom { background: #0EA5E9; }
+  .tt-card.break { background: #D97706; }
   
   .tt-tag { font-size: 8px; padding: 1px 3px; border-radius: 2px; background: rgba(255,255,255,0.25); display: inline-block; margin-bottom: 2px; }
   .tt-name { font-weight: bold; line-height: 1.1; word-break: break-all; }
@@ -90,6 +90,7 @@
   .today-item { background: #FFF; border-radius: 8px; padding: 8px 10px; border-left: 4px solid var(--primary); margin-bottom: 6px; border-top: 1px solid var(--line); border-right: 1px solid var(--line); border-bottom: 1px solid var(--line); }
   .today-item.listen { border-left-color: var(--listen-color); }
   .today-item.custom { border-left-color: #0EA5E9; }
+  .today-item.break { border-left-color: #D97706; }
   .today-time { font-size: 10px; font-weight: bold; color: #64748B; margin-bottom: 2px; display: flex; justify-content: space-between; }
   .today-title { font-size: 12px; font-weight: bold; color: var(--ink); }
   .today-note-box { font-size: 11px; background: #F1F5F9; color: #334155; padding: 4px 6px; border-radius: 4px; margin-top: 4px; }
@@ -146,7 +147,7 @@
       </div>
     </div>
 
-    <!-- 12节网格 -->
+    <!-- 12节网格 + 午休傍晚格 -->
     <div class="tt-grid" id="ttGrid"></div>
   </div>
 
@@ -225,15 +226,15 @@ var SLOT_MAP = {
   "9-11节": [9, 10, 11], "9-12节": [9, 10, 11, 12]
 };
 
-// 基础排课数据
+// 校正后的完整排课数据（已更新正确教室，已剔除第15周周五多元统计）
 var SCHED = [
-  // 听课 (listen)
-  ["listen", "高级管理经济学", "3-4节", "2-105", 1, "2-5,7-8"],
-  ["listen", "管理学理论前沿", "3-4节", "2-209", 2, "2-5,7-10"],
-  ["listen", "高级管理经济学", "3-4节", "2-105", 3, "2-5,7-8,12-15"],
-  ["listen", "高级多元统计",   "3-4节", "2-105", 4, "2-3,6,12-16"],
-  ["listen", "国际交流技巧",   "9-11节","2-205", 4, "2-4,6-8"],
-  ["listen", "高级多元统计",   "3-4节", "2-105", 5, "2-3,6,12-16"],
+  // 听课 (listen) - 观澜湖校区博士课程
+  ["listen", "高级管理经济学", "3-4节", "3-B401", 1, "2-5,7-8"],
+  ["listen", "管理学理论前沿", "3-4节", "2-209",  2, "2-5,7-10"],
+  ["listen", "高级管理经济学", "3-4节", "3-B401", 3, "2-5,7-8,12-15"],
+  ["listen", "高级多元统计",   "3-4节", "3-A209", 4, "2-3,6,12-16"],
+  ["listen", "国际交流技巧",   "9-11节","2-205",  4, "2-4,6-8"],
+  ["listen", "高级多元统计",   "3-4节", "3-A209", 5, "2-3,6,12,13-14,16"], // 剔除第15周
 
   // 授课 (teach)
   ["teach", "会计3班", "1-4节", "6A-104", 5, "1"],
@@ -252,7 +253,7 @@ var SCHED = [
 ];
 
 var currentActiveKey = "";
-var selectedAgendaDate = new Date(); // 行程视图选择的日期
+var selectedAgendaDate = new Date();
 
 function getTimeRangeStr(type, slot) {
   if (type === "teach") {
@@ -319,6 +320,7 @@ function inWeeks(rangeStr, week) {
 function getCardClass(type, name) {
   if (type === "listen") return "listen";
   if (type === "custom") return "custom";
+  if (type === "break") return "break";
   if (name.indexOf("会计3") >= 0) return "c3";
   if (name.indexOf("会计4") >= 0) return "c4";
   if (name.indexOf("财管2") >= 0) return "cg2";
@@ -370,13 +372,8 @@ function deleteModalNote() {
 }
 
 /* 待办事项逻辑 */
-function getTodos() {
-  return JSON.parse(localStorage.getItem('my_todos') || '[]');
-}
-
-function saveTodos(todos) {
-  localStorage.setItem('my_todos', JSON.stringify(todos));
-}
+function getTodos() { return JSON.parse(localStorage.getItem('my_todos') || '[]'); }
+function saveTodos(todos) { localStorage.setItem('my_todos', JSON.stringify(todos)); }
 
 function addTodo() {
   var input = document.getElementById('todoInput');
@@ -465,11 +462,19 @@ function renderAll() {
   grid.innerHTML = '';
   var days = ["一", "二", "三", "四", "五"];
   
-  // 顶部星期标头
+  // 计算当前周周一日期
+  var weekStartMs = START_DATE.getTime() + (curViewWeek - 1) * 7 * 24 * 3600 * 1000;
+
+  // 1. 顶部星期与日期标头
   grid.appendChild(createDiv('tt-header', '节次'));
   for (var d = 0; d < 5; d++) {
+    var colDate = new Date(weekStartMs + d * 24 * 3600 * 1000);
+    var dateLabel = (colDate.getMonth() + 1) + "/" + colDate.getDate();
     var isTodayHeader = (realInfo.week === curViewWeek && (d + 1) === realInfo.dayIdx);
-    grid.appendChild(createDiv('tt-header' + (isTodayHeader ? ' today' : ''), '周' + days[d]));
+    
+    var hDiv = createDiv('tt-header' + (isTodayHeader ? ' today' : ''), '');
+    hDiv.innerHTML = '周' + days[d] + '<br><span style="font-size:8px; font-weight:normal; opacity:0.85;">' + dateLabel + '</span>';
+    grid.appendChild(hDiv);
   }
 
   var teachH = 0, listenH = 0;
@@ -477,8 +482,81 @@ function renderAll() {
 
   for (var p = 1; p <= 12; p++) {
     if (p === 1) grid.appendChild(createDiv('tt-section-row', '🌅 上午 (1-4节) 授课:08:15-11:55'));
-    if (p === 5) grid.appendChild(createDiv('tt-section-row', '☀️ 下午 (5-8节) 授课:14:10-17:50'));
-    if (p === 9) grid.appendChild(createDiv('tt-section-row', '🌙 晚上 (9-12节) 授课:18:30-21:40'));
+    if (p === 5) {
+      // 插入午休专属行单元格 (11:55 - 14:10)
+      grid.appendChild(createDiv('tt-section-row', '🍱 午休区间 (11:55-14:10)'));
+      var noonHeader = createDiv('tt-slot-num', '');
+      noonHeader.style.background = "#FEF3C7";
+      noonHeader.style.color = "#92400E";
+      noonHeader.innerHTML = '<b>午休</b><span style="font-size:7px;">11:55</span>';
+      grid.appendChild(noonHeader);
+
+      for (var dayN = 1; dayN <= 5; dayN++) {
+        var nKey = "custom_break_noon_" + curViewWeek + "_" + dayN;
+        var nVal = localStorage.getItem(nKey);
+        var nCell = createDiv('tt-cell', '');
+        nCell.style.background = "#FFFBEB";
+
+        if (nVal) {
+          var nCard = createDiv('tt-card break', '');
+          nCard.innerHTML = '<span class="tt-tag">午休</span><div class="tt-name">' + escapeHtml(nVal) + '</div>';
+          (function(k, d) {
+            nCard.onclick = function(e) {
+              e.stopPropagation();
+              openNoteModal(k, "编辑周" + days[d-1] + " 午休事项", true);
+            };
+          })(nKey, dayN);
+          nCell.appendChild(nCard);
+        } else {
+          (function(k, d) {
+            nCell.onclick = function() {
+              openNoteModal(k, "添加周" + days[d-1] + " 午休事项", true);
+            };
+          })(nKey, dayN);
+        }
+        grid.appendChild(nCell);
+      }
+
+      grid.appendChild(createDiv('tt-section-row', '☀️ 下午 (5-8节) 授课:14:10-17:50'));
+    }
+
+    if (p === 9) {
+      // 插入傍晚/晚餐专属行单元格 (17:50 - 18:30)
+      grid.appendChild(createDiv('tt-section-row', '🌆 傍晚休息 (17:50-18:30)'));
+      var dinnerHeader = createDiv('tt-slot-num', '');
+      dinnerHeader.style.background = "#FEF3C7";
+      dinnerHeader.style.color = "#92400E";
+      dinnerHeader.innerHTML = '<b>傍晚</b><span style="font-size:7px;">17:50</span>';
+      grid.appendChild(dinnerHeader);
+
+      for (var dayD = 1; dayD <= 5; dayD++) {
+        var dKey = "custom_break_dinner_" + curViewWeek + "_" + dayD;
+        var dVal = localStorage.getItem(dKey);
+        var dCell = createDiv('tt-cell', '');
+        dCell.style.background = "#FFFBEB";
+
+        if (dVal) {
+          var dCard = createDiv('tt-card break', '');
+          dCard.innerHTML = '<span class="tt-tag">傍晚</span><div class="tt-name">' + escapeHtml(dVal) + '</div>';
+          (function(k, d) {
+            dCard.onclick = function(e) {
+              e.stopPropagation();
+              openNoteModal(k, "编辑周" + days[d-1] + " 傍晚事项", true);
+            };
+          })(dKey, dayD);
+          dCell.appendChild(dCard);
+        } else {
+          (function(k, d) {
+            dCell.onclick = function() {
+              openNoteModal(k, "添加周" + days[d-1] + " 傍晚事项", true);
+            };
+          })(dKey, dayD);
+        }
+        grid.appendChild(dCell);
+      }
+
+      grid.appendChild(createDiv('tt-section-row', '🌙 晚上 (9-12节) 授课:18:30-21:40'));
+    }
 
     var slotLabel = createDiv('tt-slot-num', '');
     slotLabel.innerHTML = '<b>' + p + '</b><span style="font-size:7px; color:#94A3B8;">' + LISTEN_TIMES[p].split('-')[0] + '</span>';
@@ -534,7 +612,7 @@ function renderAll() {
         
         if (customVal) {
           var customCard = createDiv('tt-card custom', '');
-          customCard.innerHTML = '<span class="tt-tag">安排</span><div class="tt-name">' + customVal + '</div>';
+          customCard.innerHTML = '<span class="tt-tag">安排</span><div class="tt-name">' + escapeHtml(customVal) + '</div>';
           (function(k, d, p) {
             customCard.onclick = function(e) {
               e.stopPropagation();
@@ -582,6 +660,7 @@ function renderScheduleForInfo(info) {
     }
   });
 
+  // 1-12节自定义
   for (var p = 1; p <= 12; p++) {
     var customKey = "custom_slot_" + info.week + "_" + info.dayIdx + "_" + p;
     var customVal = localStorage.getItem(customKey);
@@ -595,6 +674,32 @@ function renderScheduleForInfo(info) {
         timeStr: LISTEN_TIMES[p] || ""
       });
     }
+  }
+
+  // 午休事项
+  var noonVal = localStorage.getItem("custom_break_noon_" + info.week + "_" + info.dayIdx);
+  if (noonVal) {
+    todayItems.push({
+      type: "break",
+      name: noonVal,
+      slot: "午休",
+      room: "午休时间",
+      startPeriod: 4.5,
+      timeStr: "11:55-14:10"
+    });
+  }
+
+  // 傍晚事项
+  var dinnerVal = localStorage.getItem("custom_break_dinner_" + info.week + "_" + info.dayIdx);
+  if (dinnerVal) {
+    todayItems.push({
+      type: "break",
+      name: dinnerVal,
+      slot: "傍晚",
+      room: "傍晚休息",
+      startPeriod: 8.5,
+      timeStr: "17:50-18:30"
+    });
   }
 
   if (todayItems.length === 0) {
@@ -616,13 +721,14 @@ function renderScheduleForInfo(info) {
     var typeTag = "";
     if (item.type === "teach") typeTag = "【授课 " + item.timeStr + "】";
     else if (item.type === "listen") typeTag = "【听课 " + item.timeStr + "】";
+    else if (item.type === "break") typeTag = "【休息 " + item.timeStr + "】";
     else typeTag = "【安排 " + item.timeStr + "】";
 
     var courseDetail = item.type === "teach" ? TEACH_COURSE_NAME + "（" + item.name + "）" : item.name;
     
     div.innerHTML = '<div class="today-time"><span>节次：' + item.slot + '</span><span>地点：' + item.room + '</span></div>' +
-                    '<div class="today-title">' + typeTag + '<br>' + courseDetail + '</div>' +
-                    (savedNote ? '<div class="today-note-box"><b>📝 备注：</b>' + savedNote + '</div>' : '');
+                    '<div class="today-title">' + typeTag + '<br>' + escapeHtml(courseDetail) + '</div>' +
+                    (savedNote ? '<div class="today-note-box"><b>📝 备注：</b>' + escapeHtml(savedNote) + '</div>' : '');
     list.appendChild(div);
   });
 }
@@ -634,7 +740,7 @@ function createDiv(cls, text) {
   return d;
 }
 
-// 初始化
+// 初始化渲染
 renderAll();
 </script>
 </body>
